@@ -10,10 +10,10 @@ typedef void Update(GameState *gameState); // called on every frame
 
 // NOTE: empty functions meant to be replacements when
 // functions from the dll fail to load
-void InitializeStub(GameState *gameState){}
-void HotReloadStub(GameState *gameState){}
-void HotUnloadStub(GameState *gameState){} 
-void UpdateStub(GameState *gameState){}
+void InitializeStub(GameState *gameState){OutputDebugStringA("bepisInit");}
+void HotReloadStub(GameState *gameState){ OutputDebugStringA("bepisReload"); }
+void HotUnloadStub(GameState *gameState){ OutputDebugStringA("bepisUnload"); }
+void UpdateStub(GameState *gameState){    OutputDebugStringA("bepisUpdate");}
 
 typedef struct GameCode
 {

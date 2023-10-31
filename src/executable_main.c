@@ -18,9 +18,9 @@ int main(int argumentCount, char *argumentArray[])
     {
         int bytesCopied;
         bytesCopied = TextCopy(mainDllPath, basePath);
-        TextAppend(mainDllPath, "/game_code.dll", &bytesCopied);
+        TextAppend(mainDllPath, "/pinballClone_code.dll", &bytesCopied);
         bytesCopied = TextCopy(tempDllPath, basePath);
-        TextAppend(tempDllPath, "/game_code_temp.dll", &bytesCopied);
+        TextAppend(tempDllPath, "/pinballClone_code_temp.dll", &bytesCopied);
         bytesCopied = TextCopy(lockFilePath, basePath);
         TextAppend(lockFilePath, "/lock.file", &bytesCopied);
 
@@ -50,6 +50,7 @@ int main(int argumentCount, char *argumentArray[])
 
         gameCode.update(&gameState);
     }
+    CloseAudioDevice();     // Close audio context
     CloseWindow();
 
     return 0;

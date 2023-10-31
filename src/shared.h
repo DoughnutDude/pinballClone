@@ -1,6 +1,12 @@
 #include "raylib/raylib.h"
 
+#define local_persist static
+#define global_var	  static
+#define internal      static
+
 typedef struct GameState
 {
-    int veryCoolGameData;
+    Font font;
+    Music music;
+    Sound fxCoin;
 } GameState;
