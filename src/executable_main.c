@@ -36,6 +36,7 @@ int main(int argumentCount, char *argumentArray[])
     GameState gameState = {0};
     gameCode.initialize(&gameState);
 
+    double timeStampPrevious = 0;
     while(!WindowShouldClose())
     {
         // NOTE: Check if the code got recompiled
@@ -47,9 +48,18 @@ int main(int argumentCount, char *argumentArray[])
             gameCode = GameCodeLoad(mainDllPath, tempDllPath, lockFilePath);
             gameCode.hotReload(&gameState);
         }
-
         gameCode.update(&gameState);
+
+        gameState.dt = (float)(GetTime() - timeStampPrevious);
+        timeStampPrevious = GetTime();
     }
+
+    //StopMusicStream(gameState.music);
+
+    UnloadFont(gameState.font);
+    UnloadMusicStream(gameState.music);
+    UnloadSound(gameState.fxCoin);
+
     CloseAudioDevice();     // Close audio context
     CloseWindow();
 
