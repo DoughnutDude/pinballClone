@@ -12,30 +12,35 @@
 //#define assert(expression) if(!(expression)) {*(int *) 0 = 0;}
 #define ASSERT(expression)
 
+#define FLOAT_MAX 340282346638528859811704183484516925440.0f
+
 typedef enum ObstacleType
 {
-    OBSTACLE_TYPE_NULL    ,//= 0x0,
-    OBSTACLE_TYPE_CUBE    ,//= 0x1,
-    OBSTACLE_TYPE_CYLINDER,//= 0x2,
+    OBSTACLE_TYPE_NULL    , //= 0x0,
+    OBSTACLE_TYPE_CUBE    , //= 0x1,
+    OBSTACLE_TYPE_CYLINDER, //= 0x2,
 } ObstacleType;
 
 typedef struct Ball
 {
+    Vector3 momentum;
     Vector3 pos;
-    Vector3 dPos;
+    Vector3 velocity;
+    float mass;
+    float inverseMass;
 
-    int radius;
+    float radius;
     Mesh mesh;
     Color color;
 
     Ray collisionRay;
+    Ray desiredRay;
 } Ball;
 
 typedef struct Obstacle
 {
     ObstacleType type;
     Vector3 pos;
-    Vector3 oldPos;
     int elasticity;
 
     Vector3 size;
@@ -50,6 +55,7 @@ typedef struct GameState
     float dt;
 
     float angleOffset;
+    float cameraDist;
     Camera3D camera;
     Font font;
     Music music;
@@ -69,6 +75,27 @@ typedef struct GameState
     int ballCount;
     Ball balls[256];
 } GameState;
+
+
+internal GameState operator+(GameState a, GameState b)
+{
+    GameState result = a;
+    for (int obstacleIndex = 1; obstacleIndex < ARRAYCOUNT(result.obstacles); ++obstacleIndex)
+    {
+        //result.obstacles[obstacleIndex] = a.obstacles[obstacleIndex] + b.obstacles[obstacleIndex];
+        int y = 0;
+    }
+    for (int ballIndex = 1; ballIndex < ARRAYCOUNT(result.balls); ++ballIndex)
+    {
+        int x = 0;
+    }
+    return result;
+}
+internal GameState operator*(GameState a, double b)
+{
+    GameState result = {};
+    return result;
+}
 
 
 //----------------------------------------------------------------------------------

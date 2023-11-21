@@ -1,5 +1,6 @@
 #include "shared.h"
-//#include "stdio.h"
+
+global_var RayCollision mouseCollision = {0};
 
 inline Matrix GetBoardTransform(GameState * gameState)
 {
@@ -10,11 +11,9 @@ inline Matrix GetBoardTransform(GameState * gameState)
     return boardTransform;
 }
 
-internal Obstacle MakeObstacle(GameState * gameState, Vector3 pos, Vector3 size, ObstacleType type, Color color) //type
+internal Obstacle MakeObstacle(GameState * gameState, Vector3 pos, Vector3 size, ObstacleType type, Color color)
 {
     Obstacle result = { 0 };
-    result.oldPos = pos;
-    result.oldPos.y += gameState->boardHeight/2.0f;
     result.pos = pos;
     result.pos.y += gameState->boardHeight / 2.0f;
     result.size = size;
@@ -29,7 +28,6 @@ internal Obstacle MakeObstacle(GameState * gameState, Vector3 pos, Vector3 size,
         }
         case OBSTACLE_TYPE_CUBE:
         {
-            result.oldPos.y += 0.5f*result.size.y;
             result.pos.y += 0.5f*result.size.y;
             result.mesh = GenMeshCube(result.size.x, result.size.y, result.size.z);
             break;
@@ -46,20 +44,16 @@ internal Obstacle MakeObstacle(GameState * gameState, Vector3 pos, Vector3 size,
     return result;
 }
 
-internal void DrawObstacle(GameState * gameState, Obstacle obstacle)
-{
-    Model model = LoadModelFromMesh(obstacle.mesh);
-    //DrawModelEx(model, obstacle.pos, gameState->boardAxis, gameState->boardAngle, { 1.0f,1.0f,1.0f }, obstacle.color);
-    DrawModelWiresEx(model, obstacle.pos, gameState->boardAxis, gameState->boardAngle, { 1.0f,1.0f,1.0f }, PURPLE);
-    DrawModelWires(model, obstacle.oldPos, 1.0f, BLUE);
-}
-
 internal Ball MakeBall(GameState * gameState, Vector3 pos, float radius, Color color)
 {
     Ball result = { 0 };
+    result.momentum = { 0 };
     result.pos = pos;
+    result.velocity = { 0 };
+    result.mass = 1.0f;
+    result.inverseMass = 1.0f;
     result.radius = radius;
-    result.mesh = GenMeshSphere(result.radius, 12, 12);
+    result.mesh = GenMeshSphere(result.radius, 8, 8);
     result.color = color;
     result.collisionRay = { 0 };
 
@@ -68,57 +62,107 @@ internal Ball MakeBall(GameState * gameState, Vector3 pos, float radius, Color c
     return result;
 }
 
-internal void MoveBall(GameState * gameState, Ball * ball, float dt, Vector3 accel)
+internal Vector3 MoveBall(GameState * gameState, Ball * ball, float dt, Vector3 force)
 {
-    Vector3 oldPlayerPos = ball->pos;
-    accel.y -= 9.807f; // Gravity
-    //accel += -2.0f * ball->dPos; // Replace -2.0f with some better friction coefficient
-
-    Vector3 playerDelta = (0.5f * accel * square(dt)) + (ball->dPos * dt);
-    ball->dPos = accel * dt + ball->dPos;
-    Vector3 newPlayerPos = oldPlayerPos + playerDelta;
+    Vector3 oldPos = ball->pos;
+    Vector3 accel = force * ball->inverseMass;
+    //accel.y -= 9.807f; // Gravity
+    //accel -= 2.0f * ball->velocity; // Replace -2.0f with some better friction coefficient
 
 
+    Vector3 playerDelta = (0.5f * accel * square(dt)) + (ball->velocity * dt);
+    //ball->momentum = ball->momentum + force * dt;
+    //ball->velocity = ball->momentum * ball->inverseMass;
+    ball->velocity = accel * dt + ball->velocity;
+    //Vector3 newPlayerPos = oldPos + playerDelta;
     for (int collisionIterator = 0; collisionIterator < 4; ++collisionIterator)
     {
         float tMin = 1.0f;
         Vector3 desiredPos = ball->pos + playerDelta;
-#if 0
-        int hitObstacleIndex = 0;
-        for (int obstacleIndex = 1; obstacleIndex < gameState->obstacleCount; ++obstacleIndex)
-        {
-            Obstacle testObstacle = { 0 };
-        }
-#endif
+
+		float len = Vector3Length(playerDelta) + ball->radius;
+
         Ray ray = { 0 };
-        ray.position = oldPlayerPos;
-        ray.direction = playerDelta;
-        RayCollision collision = GetRayCollisionMesh(ray, gameState->boardMesh, GetBoardTransform(gameState));
+        ray.position = ball->pos;
+		ray.direction = playerDelta;
+        ball->desiredRay = ray;
 
-        if (Vector3Length(playerDelta) != 0.0f)
+        int hitObstacleIndex = 0;
+        RayCollision collision = { 0 };
+		collision.distance = FLOAT_MAX;
+        for (int obstacleIndex = 0; obstacleIndex < gameState->obstacleCount; ++obstacleIndex)
         {
-            tMin = collision.distance / Vector3Length(playerDelta);
+			Matrix collidingTransform = { 0 };
+			Vector3 collidingPos = { 0 };
+            Mesh collidingMesh = { 0 };
+            if (obstacleIndex == 0)
+            {
+                collidingMesh = gameState->boardMesh;
+				collidingTransform = GetBoardTransform(gameState);
+			}
+            else
+            {
+                collidingMesh = gameState->obstacles[obstacleIndex].mesh;
+				collidingPos = gameState->obstacles[obstacleIndex].pos;
+				Matrix translation = MatrixTranslate(collidingPos.x, collidingPos.y, collidingPos.z);
+				Matrix rotation = MatrixRotate(gameState->boardAxis, gameState->boardAngle * DEG2RAD);
+				collidingTransform = MatrixMultiply(rotation, translation);
+            }
+			// Still getting some collision fails. Maybe try some sort of cast from center to center instead of only the playerDelta ray?
+            RayCollision testCollision = GetRayCollisionMesh(ray, collidingMesh, collidingTransform);
+			Vector3 sub = ray.position - testCollision.point;
+			float subLen = Vector3Length(sub);
+			testCollision.distance = subLen;
+			if (ball->pos.y > 100.0f || ball->pos.y < -100.0f) {
+				int x = 0;
+			}
+			if (testCollision.hit && (len > testCollision.distance) && (testCollision.distance < collision.distance) && (len != 0.0f))
+            {
+                float tResult = testCollision.distance / len;
+                Vector3 partialNewPos = oldPos + tResult * (playerDelta);
+                if ((tResult >= 0.0f) && (tMin > tResult))
+                {
+                    tMin = (tResult - EPSILON > 0.0f) ? (tResult - EPSILON) : 0.0f;
+                    hitObstacleIndex = obstacleIndex;
+                }
+				collision = testCollision;
+            }
         }
 
+        //ball->pos = ball->pos + ball->velocity * dt;
         ball->pos += tMin * playerDelta;
-        if (collision.hit)
+        if (collision.hit && (len > collision.distance))
         {
-            ball->dPos = ball->dPos - Vector3DotProduct(ball->dPos, collision.normal)*collision.normal;
+            //collision.normal *= 1.0f;
+            float bounceMultip = (hitObstacleIndex == 0) ? 1.0f : 2.0f;
+            ball->collisionRay = { collision.point,  collision.normal + collision.point };
+            //collision.normal = Vector3Normalize(collision.normal);
+            //collision.normal = Vector3Add(collision.point, collision.normal);
+            //Vector3 collisionNormalRel = collision.normal - collision.point;
+            ball->velocity = ball->velocity - bounceMultip*Vector3Project(ball->velocity, collision.normal); //1.0f*Vector3DotProduct(ball->velocity, collision.normal)*collision.normal;
             playerDelta = desiredPos - ball->pos;
-            playerDelta = playerDelta - Vector3DotProduct(playerDelta, collision.normal)*collision.normal;
-            ball->collisionRay = { collision.point, collision.normal };
+            playerDelta = playerDelta - bounceMultip*Vector3Project(playerDelta, collision.normal); //1.0f * Vector3DotProduct(playerDelta, collision.normal)*collision.normal;
         }
     }
+    return force;
 }
 
 // Called on every frame
 void Update(GameState *gameState)
 {
     UpdateMusicStream(gameState->music);
+
+	Ray mouseRay = GetMouseRay(GetMousePosition(), gameState->camera);
+	mouseCollision = GetRayCollisionMesh(mouseRay, gameState->boardMesh, GetBoardTransform(gameState));
     if (IsKeyPressed(KEY_SPACE))
     {
-        PlaySound(gameState->fxCoin);
-        MakeBall(gameState, { 1,6.0f,3 }, 1, BEIGE);
+		if (mouseCollision.hit)
+		{
+			PlaySound(gameState->fxCoin);
+			Vector3 spawnPoint = mouseCollision.point;
+			spawnPoint.y += 8.0f;
+			MakeBall(gameState, spawnPoint, 0.5f, BEIGE);
+		}
     }
 
     if (IsKeyDown(KEY_W))
@@ -137,8 +181,9 @@ void Update(GameState *gameState)
     {
         gameState->angleOffset -= 0.05f;
     }
-    gameState->camera.position.x = 30.0f*cos(gameState->angleOffset);
-    gameState->camera.position.z = 30.0f*sin(gameState->angleOffset);
+    gameState->cameraDist -= (float)GetMouseWheelMove()*0.5f;
+    gameState->camera.position.x = gameState->cameraDist*cos(gameState->angleOffset);
+    gameState->camera.position.z = gameState->cameraDist*sin(gameState->angleOffset);
     //gameState->camera.target = { 0.0f, gameState->camera.position.y, 0.0f };
 
     if ((IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
@@ -156,34 +201,58 @@ void Update(GameState *gameState)
             ToggleFullscreen();
         }
     }
+    Vector3 accel[256] = { 0 };
     for (int ballIndex = 1; ballIndex < gameState->ballCount; ++ballIndex)
     {
-        MoveBall(gameState, &gameState->balls[ballIndex], gameState->dt, {0});
+        Ball * ball = &gameState->balls[ballIndex];
+        Vector3 gravity = Vector3{ 0,-9.8f,0 } * ball->mass;
+        accel[ballIndex] = MoveBall(gameState, ball, gameState->dt, gravity);
     }
 
     BeginDrawing();
     {
         BeginMode3D(gameState->camera);
-        {
-            ClearBackground(DARKGRAY);
-            Model model = LoadModelFromMesh(gameState->boardMesh);
-            DrawModelEx(model, gameState->boardPos, gameState->boardAxis, gameState->boardAngle, {1.0f,1.0f,1.0f}, DARKBROWN);
-            DrawModelWiresEx(model, gameState->boardPos, gameState->boardAxis, gameState->boardAngle, {1.0f,1.0f,1.0f}, BROWN);
-            DrawModelWires(model, { 0 }, 1.0f, DARKBROWN);
-            // Draw osbtacles
-            for (int obstacleIndex = 1; obstacleIndex < gameState->obstacleCount; ++obstacleIndex)
-            {
-                DrawObstacle(gameState, gameState->obstacles[obstacleIndex]);
-            }
-            // Draw balls
-            for (int ballIndex = 1; ballIndex < gameState->ballCount; ++ballIndex)
-            {
-                Ball ball = gameState->balls[ballIndex];
-                DrawSphere(ball.pos, ball.radius, ball.color);
-                DrawLine3D(ball.collisionRay.position, ball.collisionRay.direction, RED);
-            }
-            //DrawGrid(50, 1);
-        }
+		{
+			ClearBackground(DARKGRAY);
+			Model model = LoadModelFromMesh(gameState->boardMesh);
+			//DrawModelEx(model, gameState->boardPos, gameState->boardAxis, gameState->boardAngle, {1.0f,1.0f,1.0f}, DARKBROWN);
+			DrawModelWiresEx(model, gameState->boardPos, gameState->boardAxis, gameState->boardAngle, { 1.0f,1.0f,1.0f }, BROWN);
+			//DrawModelWires(model, { 0 }, 1.0f, DARKBROWN);
+			// Draw osbtacles
+			for (int obstacleIndex = 1; obstacleIndex < gameState->obstacleCount; ++obstacleIndex)
+			{
+				Obstacle obstacle = gameState->obstacles[obstacleIndex];
+				Model model = LoadModelFromMesh(obstacle.mesh);
+				//DrawModelEx(model, obstacle.pos, gameState->boardAxis, gameState->boardAngle, { 1.0f,1.0f,1.0f }, obstacle.color);
+				DrawModelWiresEx(model, obstacle.pos, gameState->boardAxis, gameState->boardAngle, { 1.0f,1.0f,1.0f }, PURPLE);
+				//DrawModelWires(model, obstacle.oldPos, 1.0f, BLUE);
+			}
+			// Draw balls
+			for (int ballIndex = 1; ballIndex < gameState->ballCount; ++ballIndex)
+			{
+				Ball ball = gameState->balls[ballIndex];
+				Model sphere = LoadModelFromMesh(ball.mesh);
+				//DrawSphere(ball.pos, ball.radius, ball.color);
+				DrawModelWiresEx(sphere, ball.pos, {}, {}, { 1,1,1 }, ball.color);
+				DrawLine3D(ball.collisionRay.position, ball.collisionRay.direction * 1.0f, RED);
+				//DrawLine3D(ball.pos, ball.velocity+ball.pos, GREEN);
+				accel[ballIndex] += ball.pos;
+				//DrawLine3D(ball.pos, accel[ballIndex], BLUE);
+				DrawLine3D(ball.desiredRay.position, ball.desiredRay.direction + ball.desiredRay.position, WHITE);
+			}
+			//DrawGrid(50, 1);
+			if (mouseCollision.hit)
+			{
+				DrawCubeWires(mouseCollision.point, 0.3f, 0.3f, 0.3f, BEIGE);
+
+				Vector3 normalEnd;
+				normalEnd.x = mouseCollision.point.x + mouseCollision.normal.x;
+				normalEnd.y = mouseCollision.point.y + mouseCollision.normal.y;
+				normalEnd.z = mouseCollision.point.z + mouseCollision.normal.z;
+
+				DrawLine3D(mouseCollision.point, normalEnd, BEIGE);
+			}
+		}
         EndMode3D();
     }
     EndDrawing();
@@ -195,6 +264,7 @@ void HotReload(GameState *gameState)
     TraceLog(LOG_INFO, "HOTRELOAD");
 
     gameState->angleOffset = -PI/2.0f;
+    gameState->cameraDist = 36.0f;
     gameState->camera = { 0 };
     gameState->camera.position;
     gameState->camera.position = { 0.0f, 24.0f, 0.0f };

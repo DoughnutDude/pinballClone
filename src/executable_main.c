@@ -33,10 +33,16 @@ int main(int argumentCount, char *argumentArray[])
     GameCode gameCode = {0};
     gameCode = GameCodeLoad(mainDllPath, tempDllPath, lockFilePath);
 
+    GameState previousState = {0};
     GameState gameState = {0};
     gameCode.initialize(&gameState);
 
-    double timeStampPrevious = 0;
+    double t = 0;
+    double dt = 1.0/60.0;
+
+    double currentTime = GetTime();
+    double accumulator = 0;
+
     while(!WindowShouldClose())
     {
         // NOTE: Check if the code got recompiled
@@ -48,10 +54,33 @@ int main(int argumentCount, char *argumentArray[])
             gameCode = GameCodeLoad(mainDllPath, tempDllPath, lockFilePath);
             gameCode.hotReload(&gameState);
         }
-        gameCode.update(&gameState);
 
-        gameState.dt = (float)(GetTime() - timeStampPrevious);
-        timeStampPrevious = GetTime();
+        double newTime = GetTime();
+        double frameTime = newTime - currentTime;
+        if (frameTime > 0.25)
+        {
+            frameTime = 0.25;
+        }
+        currentTime = newTime;
+        
+        accumulator += frameTime;
+        
+        while (accumulator >= dt)
+        {
+            previousState = gameState;
+            gameState.dt = dt;
+            gameCode.update(&gameState);
+            t += dt;
+            accumulator -= dt;
+        }
+
+        double alpha = accumulator / dt;
+
+        // This is the one that gets rendered
+        //GameState state = gameState * alpha + previousState * (1.0 - alpha);
+
+        //gameState.dt = (float)(GetTime() - currentTime);
+        //currentTime = GetTime();
     }
 
     //StopMusicStream(gameState.music);
