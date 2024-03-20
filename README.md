@@ -31,3 +31,4 @@ If you want to use msvc: just download Visual Studio Community 2019 and it shoul
 https://github.com/krzosa/raylib_hot_reload_template
 https://hero.handmade.network/episode/code/day021/
 https://github.com/raysan5/raylib
+https://www.youtube.com/watch?v=6rgiPrzqt9w

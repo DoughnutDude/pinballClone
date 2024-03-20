@@ -1,5 +1,6 @@
 #include "raylib/raylib.h"
 #include "raylib/raymath.h"
+//#include "gjk.h"
 
 #define local_persist static
 #define global_var	  static
@@ -17,7 +18,7 @@
 typedef enum ObstacleType
 {
     OBSTACLE_TYPE_NULL    , //= 0x0,
-    OBSTACLE_TYPE_CUBE    , //= 0x1,
+    OBSTACLE_TYPE_BOX     , //= 0x1,
     OBSTACLE_TYPE_CYLINDER, //= 0x2,
 } ObstacleType;
 
@@ -54,6 +55,7 @@ typedef struct GameState
     int screenHeight;
     float dt;
 
+    bool controllingCamera = false;
     float angleOffset;
     float cameraDist;
     Camera3D camera;
@@ -61,9 +63,16 @@ typedef struct GameState
     Music music;
     Sound fxCoin;
 
-    float boardLength;
-    float boardHeight;
-    float boardWidth;
+    union
+    {
+        struct
+        {
+            float boardWidth;
+            float boardHeight;
+            float boardLength;
+        };
+        Vector3 boardDim;
+    };
     float boardAngle;
     Vector3 boardPos;
     Vector3 boardAxis;
@@ -75,6 +84,15 @@ typedef struct GameState
     int ballCount;
     Ball balls[256];
 } GameState;
+
+struct CollisionData
+{
+    bool hit; // Whether contains origin or not.
+    Vector3 normal;
+
+    Vector3 * vertices;//contains duplicates for each face
+    int count;
+};
 
 
 internal GameState operator+(GameState a, GameState b)
@@ -101,11 +119,13 @@ internal GameState operator*(GameState a, double b)
 //----------------------------------------------------------------------------------
 // Math Operations
 //----------------------------------------------------------------------------------
-inline float square(float a) {
+inline float square(float a)
+{
     float result;
     result = a * a;
     return result;
 }
+
 
 //----------------------------------------------------------------------------------
 // Vector Operations
@@ -198,6 +218,38 @@ inline Vector3 &operator*=(Vector3 &a, float b)
     a = a * b;
     return a;
 }
+inline bool operator==(Vector3 a, Vector3 b)
+{
+    bool result;
+    result = (a.x == b.x) & (a.y == b.y) & (a.z == b.z);
+    return result;
+}
+inline Vector3 Vector3Copy(Vector3 a)
+{
+    Vector3 result = { 0 };
+    result.x = a.x;
+    result.y = a.y;
+    result.z = a.z;
+    return result;
+}
+inline Vector3 Vector3TripleProduct(Vector3 a, Vector3 b, Vector3 c)
+{
+    Vector3 result;
+
+    float ac = Vector3DotProduct(a, c);
+    float bc = Vector3DotProduct(b, c);
+    result = b*ac - a*bc;
+    return result;
+}
+
+internal Vector3 GetPlaneNormalFromTriangle(Vector3 p1, Vector3 p2, Vector3 p3)
+{
+    Vector3 edge1 = p2 - p1;
+    Vector3 edge2 = p3 - p1;
+    Vector3 normal = Vector3CrossProduct(edge1, edge2);
+
+    return normal;
+}
 
 
 //----------------------------------------------------------------------------------
@@ -209,10 +261,28 @@ inline Color operator-(Color a, Color b)
     result.r = a.r - b.r;
     result.g = a.g - b.g;
     result.b = a.b - b.b;
+    result.a = a.a - b.a;
     return result;
 }
 inline Color &operator-=(Color &a, Color b)
 {
     a = a - b;
     return a;
+}
+inline Color operator*(Color a, Color b)
+{
+    Color result = {};
+    result.r = a.r * b.r;
+    result.g = a.g * b.g;
+    result.b = a.b * b.b;
+    result.a = a.a * b.a;
+    return result;
+}
+inline Color operator*(float a, Color b)
+{
+    Color result = {};
+    result.r = a*b.r;
+    result.g = a*b.g;
+    result.b = a*b.b;
+    return result;
 }
