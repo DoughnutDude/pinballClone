@@ -88,7 +88,11 @@ typedef struct GameState
 struct CollisionData
 {
     bool hit; // Whether contains origin or not.
-    Vector3 normal;
+    Vector3 penetrationVec;
+    Vector3 faceCollided[3];
+    Vector3 closestPointA;
+    Vector3 closestPointB;
+    Vector3 closestPointMinkowski;
 
     Vector3 * vertices;//contains duplicates for each face
     int count;
