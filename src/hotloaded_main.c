@@ -45,18 +45,18 @@ internal void Draw(GameState * gameState, CollisionData simplex)
             //Draw simplex for GJK/EPA
             if (simplex.count > 0)
             {
-                DrawLine3D(simplex.vertices[0], simplex.vertices[1], WHITE);
+                DrawLine3D(simplex.vertices[0].minkowski, simplex.vertices[1].minkowski, WHITE);
             }
             if (simplex.count >= 3)
             {
-                DrawLine3D(simplex.vertices[2], simplex.vertices[1], WHITE);
-                DrawLine3D(simplex.vertices[2], simplex.vertices[0], WHITE);
+                DrawLine3D(simplex.vertices[2].minkowski, simplex.vertices[1].minkowski, WHITE);
+                DrawLine3D(simplex.vertices[2].minkowski, simplex.vertices[0].minkowski, WHITE);
             }
             if (simplex.count == 4)
             {
-                DrawLine3D(simplex.vertices[3], simplex.vertices[1], WHITE);
-                DrawLine3D(simplex.vertices[3], simplex.vertices[2], WHITE);
-                DrawLine3D(simplex.vertices[3], simplex.vertices[0], WHITE);
+                DrawLine3D(simplex.vertices[3].minkowski, simplex.vertices[1].minkowski, WHITE);
+                DrawLine3D(simplex.vertices[3].minkowski, simplex.vertices[2].minkowski, WHITE);
+                DrawLine3D(simplex.vertices[3].minkowski, simplex.vertices[0].minkowski, WHITE);
             }
             //DrawGrid(50, 1);
             if (mouseCollision.hit)
@@ -142,6 +142,7 @@ internal Ball MakeBall(GameState * gameState, Vector3 pos, float radius, Color c
 
 
 // GJK/EPA stuff
+// TODO: Should also create support functions for line(capsule collision)
 //Finds the vertex with the greatest distance in a particular direction.
 internal Vector3 Support(Vector3 direction, Vector3 * vertices, int count)
 {
@@ -161,7 +162,7 @@ internal Vector3 Support(Vector3 direction, Vector3 * vertices, int count)
 
 // ClosestPointOnLine
 // ClosestPointOnTriangle
-// ClosesntPointOnTetrahedron
+// ClosestPointOnTetrahedron
 
 internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
 {
@@ -171,8 +172,8 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
         case 1: break; // Point | invalid code path?
         case 2: // Line
         {
-            Vector3 a = Vector3Copy(simplex->vertices[1]);
-            Vector3 b = Vector3Copy(simplex->vertices[0]);
+            Vector3 a = Vector3Copy(simplex->vertices[1].minkowski);
+            Vector3 b = Vector3Copy(simplex->vertices[0].minkowski);
             Vector3 ao = Vector3Copy(Vector3Negate(a));
             Vector3 bo = Vector3Copy(Vector3Negate(b));
             
@@ -185,22 +186,22 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
             if (v <= 0.f)
             {
                 //in region A
-                simplex->vertices[0] = Vector3Copy(a);
+                simplex->vertices[0].minkowski = Vector3Copy(a);
                 simplex->count = 1;
                 *direction = ao;
             }
             else if (u <= 0.f)
             {
                 //in region B
-                simplex->vertices[0] = Vector3Copy(b);
+                simplex->vertices[0].minkowski = Vector3Copy(b);
                 simplex->count = 1;
                 *direction = bo;
             }
             else
             {
                 //in region AB
-                simplex->vertices[0] = b;
-                simplex->vertices[1] = a;
+                simplex->vertices[0].minkowski = b;
+                simplex->vertices[1].minkowski = a;
                 simplex->count = 2;
                 simplex->closestPointMinkowski = u*a + v*b;
                 *direction = Vector3TripleProduct(ab, Vector3Negate(a), ab);
@@ -209,9 +210,9 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
         }
         case 3: // Triangle
         {
-            Vector3 a = Vector3Copy(simplex->vertices[2]);
-            Vector3 b = Vector3Copy(simplex->vertices[1]);
-            Vector3 c = Vector3Copy(simplex->vertices[0]);
+            Vector3 a = Vector3Copy(simplex->vertices[2].minkowski);
+            Vector3 b = Vector3Copy(simplex->vertices[1].minkowski);
+            Vector3 c = Vector3Copy(simplex->vertices[0].minkowski);
             Vector3 ao = Vector3Copy(Vector3Negate(a));
             Vector3 bo = Vector3Copy(Vector3Negate(b));
             Vector3 co = Vector3Copy(Vector3Negate(c));
@@ -233,21 +234,21 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
             if ((uCA <= 0.f) && (vAB <= 0.f))
             {//region a
                 simplex->count = 1;
-                simplex->vertices[0] = Vector3Copy(a);
+                simplex->vertices[0].minkowski = Vector3Copy(a);
                 *direction = Vector3Copy(ao);
                 break;
             }
             else if ((uAB <= 0.f) && (vBC <= 0.f))
             {//region b
                 simplex->count = 1;
-                simplex->vertices[0] = Vector3Copy(b);
+                simplex->vertices[0].minkowski = Vector3Copy(b);
                 *direction = Vector3Copy(bo);
                 break;
             }
             else if ((uBC <= 0.f) && (vCA <= 0.f))
             {//region c
                 simplex->count = 1;
-                simplex->vertices[0] = Vector3Copy(c);
+                simplex->vertices[0].minkowski = Vector3Copy(c);
                 *direction = Vector3Copy(co);
                 break;
             }
@@ -264,33 +265,33 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
             if ((uAB > 0.f) && (vAB > 0.f) && (wABC > 0.f))
             {//region AB
                 simplex->count = 2;
-                simplex->vertices[0] = b;
-                simplex->vertices[1] = a;
+                simplex->vertices[0].minkowski = b;
+                simplex->vertices[1].minkowski = a;
                 *direction = Vector3TripleProduct(ab,ao,ab);
                 break;
             }
             else if ((uBC > 0.f) && (vBC > 0.f) && (uABC > 0.f))
             {//region BC
                 simplex->count = 2;
-                simplex->vertices[0] = c;
-                simplex->vertices[1] = b;
+                simplex->vertices[0].minkowski = c;
+                simplex->vertices[1].minkowski = b;
                 *direction = Vector3TripleProduct(bc,bo,bc);
                 break;
             }
             else if ((uCA > 0.f) && (vCA > 0.f) && (vABC > 0.f))
             {//region CA
                 simplex->count = 2;
-                simplex->vertices[0] = c;
-                simplex->vertices[1] = a;
+                simplex->vertices[0].minkowski = c;
+                simplex->vertices[1].minkowski = a;
                 *direction = Vector3TripleProduct(ac,co,ac);
                 break;
             }
             else if ((uABC > 0.f) && (vABC > 0.f) && (wABC > 0.f))
             {//region ABC
                 simplex->count = 3;
-                simplex->vertices[0] = c;
-                simplex->vertices[1] = b;
-                simplex->vertices[2] = a;
+                simplex->vertices[0].minkowski = c;
+                simplex->vertices[1].minkowski = b;
+                simplex->vertices[2].minkowski = a;
                 if (Vector3DotProduct(abXac, ao) > 0.f)
                 {
                     *direction = abXac;
@@ -306,8 +307,8 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
             {
                 if (Vector3DotProduct(ac, ao) > 0)
                 {
-                    simplex->vertices[0] = a;
-                    simplex->vertices[1] = c;
+                    simplex->vertices[0].minkowski = a;
+                    simplex->vertices[1].minkowski = c;
                     simplex->count = 2;
                     *direction = Vector3TripleProduct(ac,ao,ac);
                 }
@@ -315,14 +316,14 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
                 {
                     if (Vector3DotProduct(ab, ao) > 0)
                     {
-                        simplex->vertices[0] = a;
-                        simplex->vertices[1] = b;
+                        simplex->vertices[0].minkowski = a;
+                        simplex->vertices[1].minkowski = b;
                         simplex->count = 2;
                         *direction = Vector3TripleProduct(ab,ao,ab);
                     }
                     else
                     {
-                        simplex->vertices[0] = a; // invalid code path?
+                        simplex->vertices[0].minkowski = a; // invalid code path?
                         simplex->count = 1;
                         *direction = ao;
                     }
@@ -334,14 +335,14 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
                 {
                     if (Vector3DotProduct(ab, ao) > 0)
                     {
-                        simplex->vertices[0] = a;
-                        simplex->vertices[1] = b;
+                        simplex->vertices[0].minkowski = a;
+                        simplex->vertices[1].minkowski = b;
                         simplex->count = 2;
                         *direction = Vector3TripleProduct(ab, ao, ab);
                     }
                     else
                     {
-                        simplex->vertices[0] = a; // invalid code path?
+                        simplex->vertices[0].minkowski = a; // invalid code path?
                         simplex->count = 1;
                         *direction = ao;
                     }
@@ -350,17 +351,17 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
                 {
                     if (Vector3DotProduct(abXac, ao) > 0)
                     {
-                        simplex->vertices[0] = a;
-                        simplex->vertices[1] = b;
-                        simplex->vertices[2] = c;
+                        simplex->vertices[0].minkowski = a;
+                        simplex->vertices[1].minkowski = b;
+                        simplex->vertices[2].minkowski = c;
                         simplex->count = 3;
                         *direction = abXac;
                     }
                     else
                     {
-                        simplex->vertices[0] = a;
-                        simplex->vertices[1] = c;
-                        simplex->vertices[2] = b;
+                        simplex->vertices[0].minkowski = a;
+                        simplex->vertices[1].minkowski = c;
+                        simplex->vertices[2].minkowski = b;
                         simplex->count = 3;
                         *direction = -1.f*abXac;
                     }
@@ -373,34 +374,221 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
         {
             bool faceChecks[3];
 
-            Vector3 a = Vector3Copy(simplex->vertices[3]);
-            Vector3 b = Vector3Copy(simplex->vertices[2]);
-            Vector3 c = Vector3Copy(simplex->vertices[1]);
-            Vector3 d = Vector3Copy(simplex->vertices[0]);
-
+            Vector3 a = Vector3Copy(simplex->vertices[3].minkowski);
+            Vector3 b = Vector3Copy(simplex->vertices[2].minkowski);
+            Vector3 c = Vector3Copy(simplex->vertices[1].minkowski);
+            Vector3 d = Vector3Copy(simplex->vertices[0].minkowski);
             Vector3 ao = -1.f * a;
-            
+            Vector3 bo = -1.f * b;
+            Vector3 co = -1.f * c;
+            Vector3 dNeg = -1.f * d;//do, obviously can't call it that cause that's a syntax word
+
+            Vector3 ab = b - a;
+            Vector3 ba = a - b;
+            Vector3 bc = c - b;
+            Vector3 cb = b - c;
+            Vector3 ca = a - c;
+            Vector3 ac = c - a;
+            Vector3 db = b - d;
+            Vector3 bd = d - b;
+            Vector3 dc = c - d;
+            Vector3 cd = d - c;
+            Vector3 da = d - a;
+            Vector3 ad = a - d;
+#if 0
             Vector3 ab = b - a; // 321/abc triangle
             Vector3 ac = c - a;
             Vector3 abXac = Vector3CrossProduct(ab, ac);
             faceChecks[0] = (Vector3DotProduct(abXac, ao) > 0);
-
             // 310/acd triangle
             Vector3 ad = d - a;
             Vector3 acXad = Vector3CrossProduct(ac, ad);
             faceChecks[1] = !(Vector3DotProduct(acXad, ao) > 0);
-
             // 302/adb triangle
             Vector3 adXab = Vector3CrossProduct(ad, ab);
             faceChecks[2] = (Vector3DotProduct(adXab, ao) > 0);
+#endif
 
+            float uAB = Vector3DotProduct(b, ab);
+            float vAB = Vector3DotProduct(a, ba);
+            float uBC = Vector3DotProduct(c, bc);
+            float vBC = Vector3DotProduct(b, cb);
+            float uCA = Vector3DotProduct(a, ca);
+            float vCA = Vector3DotProduct(c, ac);
+            float uBD = Vector3DotProduct(d, bd);
+            float vBD = Vector3DotProduct(b, db);
+            float uDC = Vector3DotProduct(c, dc);
+            float vDC = Vector3DotProduct(d, cd);
+            float uAD = Vector3DotProduct(d, ad);
+            float vAD = Vector3DotProduct(a, da);
+ 
+            if ((uCA <= 0.f) && (vAB <= 0.f) && (vAD <= 0.f))
+            {//region a
+                simplex->count = 1;
+                simplex->vertices[0].minkowski = Vector3Copy(a);
+                *direction = Vector3Copy(ao);
+                break;
+            }
+            else if ((uAB <= 0.f) && (vBC <= 0.f) && (vBD <= 0.f))
+            {//region b
+                simplex->count = 1;
+                simplex->vertices[0].minkowski = Vector3Copy(b);
+                *direction = Vector3Copy(bo);
+                break;
+            }
+            else if ((uBC <= 0.f) && (vCA <= 0.f) && (uDC <= 0.f))
+            {//region c
+                simplex->count = 1;
+                simplex->vertices[0].minkowski = Vector3Copy(c);
+                *direction = Vector3Copy(co);
+                break;
+            }
+            else if ((uBD <= 0.f) && (vDC <= 0.f) && (uAD <= 0.f))
+            {//region d
+                simplex->count = 1;
+                simplex->vertices[0].minkowski = Vector3Copy(d);
+                *direction = Vector3Copy(dNeg);
+            }
+
+            Vector3 abXac = Vector3CrossProduct(ab, ac);
+            Vector3 bXc = Vector3CrossProduct(b, c);
+            Vector3 cXa = Vector3CrossProduct(c, a);
+            Vector3 aXb = Vector3CrossProduct(a, b);
+            float uABC = Vector3DotProduct(bXc, abXac);
+            float vABC = Vector3DotProduct(cXa, abXac);
+            float wABC = Vector3DotProduct(aXb, abXac);
+
+            Vector3 adXab = Vector3CrossProduct(ad, ab);
+            Vector3 dXb = Vector3CrossProduct(d, b);
+            Vector3 bXa = Vector3CrossProduct(b, a);
+            Vector3 aXd = Vector3CrossProduct(a, d);
+            float uADB = Vector3DotProduct(dXb, adXab);
+            float vADB = Vector3DotProduct(bXa, adXab);
+            float wADB = Vector3DotProduct(aXd, adXab);
+
+            Vector3 acXad = Vector3CrossProduct(ab, ac);
+            Vector3 cXd = Vector3CrossProduct(c, d);
+            Vector3 dXa = Vector3CrossProduct(d, a);
+            Vector3 aXc = Vector3CrossProduct(a, c);
+            float uACD = Vector3DotProduct(cXd, acXad);
+            float vACD = Vector3DotProduct(dXa, acXad);
+            float wACD = Vector3DotProduct(aXc, acXad);
+
+            Vector3 cbXcd = Vector3CrossProduct(cb, cd);
+            Vector3 bXd = Vector3CrossProduct(b, d);
+            Vector3 dXc = Vector3CrossProduct(d, c);
+            Vector3 cXb = Vector3CrossProduct(c, b);
+            float uCBD = Vector3DotProduct(bXd, cbXcd);
+            float vCBD = Vector3DotProduct(dXc, cbXcd);
+            float wCBD = Vector3DotProduct(cXb, cbXcd);
+           
+            if ((wABC <= 0.f) && (vADB <= 0.f) && (uAB > 0.f) && (vAB > 0.f))
+            {
+                //region AB
+                simplex->count = 2;
+                simplex->vertices[0].minkowski = Vector3Copy(b);
+                simplex->vertices[1].minkowski = Vector3Copy(a);
+                *direction = Vector3TripleProduct(ab, ao, ab);
+            }
+            else if ((uABC <= 0.f) && (wCBD <= 0.f) && (uBC > 0.f) && (vBC > 0.f))
+            {
+                //region BC
+                simplex->count = 2;
+                simplex->vertices[0].minkowski = Vector3Copy(c);
+                simplex->vertices[1].minkowski = Vector3Copy(b);
+                *direction = Vector3TripleProduct(bc, bo, bc);
+            }
+            else if ((vABC <= 0.f) && (wACD <= 0.f) && (uCA > 0.f) && (vCA > 0.f))
+            {
+                //region CA
+                simplex->count = 2;
+                simplex->vertices[0].minkowski = Vector3Copy(c);
+                simplex->vertices[1].minkowski = Vector3Copy(a);
+                *direction = Vector3TripleProduct(ca, co, ca);
+            }
+            else if ((wADB <= 0.f) && (uCBD <= 0.f) && (uBD > 0.f) && (vBD > 0.f))
+            {
+                //region BD
+                simplex->count = 2;
+                simplex->vertices[0].minkowski = Vector3Copy(d);
+                simplex->vertices[1].minkowski = Vector3Copy(b);
+                *direction = Vector3TripleProduct(bd, bo, bd);
+            }
+            else if ((uACD <= 0.f) && (vCBD <= 0.f) && (uDC > 0.f) && (vDC > 0.f))
+            {
+                //region DC
+                simplex->count = 2;
+                simplex->vertices[0].minkowski = Vector3Copy(d);
+                simplex->vertices[1].minkowski = Vector3Copy(c);
+                *direction = Vector3TripleProduct(dc, dNeg, dc);
+            }
+            else if ((wADB <= 0.f) && (vACD <= 0.f) && (uAD > 0.f) && (vAD > 0.f))
+            {
+                //region AD
+                simplex->count = 2;
+                simplex->vertices[0].minkowski = Vector3Copy(d);
+                simplex->vertices[1].minkowski = Vector3Copy(a);
+                *direction = Vector3TripleProduct(ad, ao, ad);
+            }
+
+            float denom = Vector3DotProduct(Vector3CrossProduct(ba, bc), bd); //what is this?????
+            float volume = (denom == 0.f) ? (1.f) : (1.f/denom);
+            float uABCD = Vector3DotProduct(Vector3CrossProduct(c, d), b) * volume;
+            float vABCD = Vector3DotProduct(Vector3CrossProduct(c, a), d) * volume;
+            float wABCD = Vector3DotProduct(Vector3CrossProduct(d, a), b) * volume;
+            float xABCD = Vector3DotProduct(Vector3CrossProduct(b, a), c) * volume;
+
+            if ((xABCD < 0.f) && (uABC > 0.f) && (vABC > 0.f) && (wABC > 0.f))
+            {//region ABC
+                simplex->count = 3;
+                simplex->vertices[0].minkowski = Vector3Copy(c);
+                simplex->vertices[1].minkowski = Vector3Copy(b);
+                simplex->vertices[2].minkowski = Vector3Copy(a);
+                *direction = Vector3CrossProduct(ab, ac);
+            }
+            else if ((wABCD < 0.f) && (uADB > 0.f) && (vADB > 0.f) && (wADB > 0.f))
+            {//region ADB
+                simplex->count = 3;
+                simplex->vertices[0].minkowski = Vector3Copy(d);
+                simplex->vertices[1].minkowski = Vector3Copy(c);
+                simplex->vertices[2].minkowski = Vector3Copy(b);
+                *direction = Vector3CrossProduct(ad, ab);
+            }
+            else if ((vABCD < 0.f) && (uACD > 0.f) && (vACD > 0.f) && (wACD > 0.f))
+            {//region ACD
+                simplex->count = 3;
+                simplex->vertices[0].minkowski = Vector3Copy(d);
+                simplex->vertices[1].minkowski = Vector3Copy(c);
+                simplex->vertices[2].minkowski = Vector3Copy(a);
+                *direction = Vector3CrossProduct(ac, ad);
+            }
+            else if ((uABCD < 0.f) && (uCBD > 0.f) && (vCBD > 0.f) && (wCBD > 0.f))
+            {//region CBD
+                simplex->count = 3;
+                simplex->vertices[0].minkowski = Vector3Copy(d);
+                simplex->vertices[1].minkowski = Vector3Copy(c);
+                simplex->vertices[2].minkowski = Vector3Copy(b);
+                *direction = Vector3CrossProduct(cb, cd);
+            }
+            else if ((uABCD >= 0.f) && (vABCD >= 0.f) && (wABCD >= 0.f) && (xABCD >= 0.f))
+            {//inside tetrahedron, collision found
+                simplex->count = 4;
+                simplex->vertices[0].minkowski = Vector3Copy(d);
+                simplex->vertices[1].minkowski = Vector3Copy(c);
+                simplex->vertices[2].minkowski = Vector3Copy(b);
+                simplex->vertices[3].minkowski = Vector3Copy(a);
+                simplex->hit = true;
+                return true;
+            }
+
+#if 0
             if (faceChecks[0])
             {
                 if (faceChecks[1])
                 {
                     if (faceChecks[2])
                     {
-                        simplex->vertices[0] = a;
+                        simplex->vertices[0].minkowski = a;
                         simplex->count = 1;
                         *direction = ao;
                         simplex->hit = false;
@@ -408,8 +596,8 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
                     }
                     else
                     {
-                        simplex->vertices[1] = a;
-                        simplex->vertices[0] = c;
+                        simplex->vertices[1].minkowski = a;
+                        simplex->vertices[0].minkowski = c;
                         simplex->count = 2;
                         *direction = Vector3TripleProduct(ac, ao, ac);
                     }
@@ -418,16 +606,16 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
                 {
                     if (faceChecks[2])
                     {
-                        simplex->vertices[1] = a;
-                        simplex->vertices[0] = b;
+                        simplex->vertices[1].minkowski = a;
+                        simplex->vertices[0].minkowski = b;
                         simplex->count = 2;
                         *direction = Vector3TripleProduct(ab, ao, ab);
                     }
                     else
                     {
-                        simplex->vertices[2] = a;
-                        simplex->vertices[1] = b;
-                        simplex->vertices[0] = c;
+                        simplex->vertices[2].minkowski = a;
+                        simplex->vertices[1].minkowski = b;
+                        simplex->vertices[0].minkowski = c;
                         simplex->count = 3;
                         *direction = abXac;
                     }
@@ -439,16 +627,16 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
                 {
                     if (faceChecks[2])
                     {
-                        simplex->vertices[1] = a;
-                        simplex->vertices[0] = d;
+                        simplex->vertices[1].minkowski = a;
+                        simplex->vertices[0].minkowski = d;
                         simplex->count = 2;
                         *direction = Vector3TripleProduct(ad, ao, ad);
                     }
                     else
                     {
-                        simplex->vertices[2] = a;
-                        simplex->vertices[1] = c;
-                        simplex->vertices[0] = d;
+                        simplex->vertices[2].minkowski = a;
+                        simplex->vertices[1].minkowski = c;
+                        simplex->vertices[0].minkowski = d;
                         simplex->count = 3;
                         *direction = acXad;
                     }
@@ -457,9 +645,9 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
                 {
                     if (faceChecks[2])
                     {
-                        simplex->vertices[2] = a;
-                        simplex->vertices[1] = b;
-                        simplex->vertices[0] = d;
+                        simplex->vertices[2].minkowski = a;
+                        simplex->vertices[1].minkowski = b;
+                        simplex->vertices[0].minkowski = d;
                         simplex->count = 3;
                         *direction = adXab;
                     }
@@ -470,6 +658,7 @@ internal bool GJKDoSimplex(CollisionData *simplex, Vector3 * direction)
                     }
                 }
             }
+#endif
         }
         break;
     }
@@ -484,21 +673,21 @@ internal Vector3 RunEPA(CollisionData simplex, float * aVertices, int aCount, fl
     Vector3 polytope [256][3];
     int polytopeFaceCount = 4;
     // Load simplex into polytope
-    polytope[0][0] = simplex.vertices[0];
-    polytope[0][1] = simplex.vertices[1];
-    polytope[0][2] = simplex.vertices[2];
+    polytope[0][0] = simplex.vertices[0].minkowski;
+    polytope[0][1] = simplex.vertices[1].minkowski;
+    polytope[0][2] = simplex.vertices[2].minkowski;
 
-    polytope[1][0] = simplex.vertices[3];
-    polytope[1][1] = simplex.vertices[1];
-    polytope[1][2] = simplex.vertices[0];
+    polytope[1][0] = simplex.vertices[3].minkowski;
+    polytope[1][1] = simplex.vertices[1].minkowski;
+    polytope[1][2] = simplex.vertices[0].minkowski;
 
-    polytope[2][0] = simplex.vertices[3];
-    polytope[2][1] = simplex.vertices[0];
-    polytope[2][2] = simplex.vertices[2];
+    polytope[2][0] = simplex.vertices[3].minkowski;
+    polytope[2][1] = simplex.vertices[0].minkowski;
+    polytope[2][2] = simplex.vertices[2].minkowski;
 
-    polytope[3][0] = simplex.vertices[3];
-    polytope[3][1] = simplex.vertices[2];
-    polytope[3][2] = simplex.vertices[1];
+    polytope[3][0] = simplex.vertices[3].minkowski;
+    polytope[3][1] = simplex.vertices[2].minkowski;
+    polytope[3][2] = simplex.vertices[1].minkowski;
 
     while (true)
     {
@@ -584,23 +773,24 @@ internal CollisionData RunGJK(GameState*gameState, Mesh aMesh, Matrix aTransform
         *vertex = Vector3Transform(*vertex, bTransform);
     }
 
-    Vector3 vertices[4];
     CollisionData simplex = { 0 };
-    simplex.vertices = vertices;
     Vector3 suppA = Support(Vector3One(), (Vector3*)aVertices, aCount);
     Vector3 suppB = Support(Vector3Negate(Vector3One()), (Vector3*)bVertices, bCount);
     simplex.closestPointA = Vector3Copy(suppA);
     simplex.closestPointB = Vector3Copy(suppB);
-    simplex.vertices[0] = suppA - suppB;
+    simplex.vertices[0].minkowski = suppA - suppB;
     ++simplex.count;
-    Vector3 direction = Vector3Negate(simplex.vertices[0]);
+    Vector3 direction = Vector3Negate(simplex.vertices[0].minkowski);
 
     while (true)
     {
         Vector3 suppA = Support(direction, (Vector3*)aVertices, aCount);
         Vector3 suppB = Support(Vector3Negate(direction), (Vector3*)bVertices, bCount);
-        Vector3 newSimplexVertex = suppA - suppB;
-        if (Vector3DotProduct(newSimplexVertex, direction) <= EPSILON)
+        VertexGJK newSimplexVertex = {0};
+        newSimplexVertex.a = suppA;
+        newSimplexVertex.b = suppB;
+        newSimplexVertex.minkowski = suppA - suppB;
+        if (Vector3DotProduct(newSimplexVertex.minkowski, direction) <= EPSILON)
         {
             break; // No intersection
         }

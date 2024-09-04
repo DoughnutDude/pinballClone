@@ -85,6 +85,13 @@ typedef struct GameState
     Ball balls[256];
 } GameState;
 
+struct VertexGJK
+{
+    Vector3 a;
+    Vector3 b;
+    Vector3 minkowski;
+};
+
 struct CollisionData
 {
     bool hit; // Whether contains origin or not.
@@ -93,8 +100,8 @@ struct CollisionData
     Vector3 closestPointA;
     Vector3 closestPointB;
     Vector3 closestPointMinkowski;
+    VertexGJK vertices[4];
 
-    Vector3 * vertices;//contains duplicates for each face
     int count;
 };
 
