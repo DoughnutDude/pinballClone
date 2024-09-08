@@ -87,21 +87,26 @@ typedef struct GameState
 
 struct VertexGJK
 {
-    Vector3 a;
-    Vector3 b;
+    Vector3 i;
+    Vector3 j;
     Vector3 minkowski;
 };
 
 struct CollisionData
 {
-    bool hit; // Whether contains origin or not.
+    bool hit;
+    float distanceSquared;
     Vector3 penetrationVec;
     Vector3 faceCollided[3];
-    Vector3 closestPointA;
-    Vector3 closestPointB;
-    Vector3 closestPointMinkowski;
-    VertexGJK vertices[4];
+    Vector3 closestPointI;
+    Vector3 closestPointJ;
+    Vector3 closestFeatureI[4];
+    int closestFeatureIvertexCount;
+    Vector3 closestFeatureJ[4];
+    int closestFeatureJvertexCount;
 
+    VertexGJK vertices[4]; //makes up the simplex
+    float barycentricCoords[4];
     int count;
 };
 
