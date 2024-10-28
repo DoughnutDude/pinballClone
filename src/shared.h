@@ -14,6 +14,10 @@
 #define ASSERT(expression)
 
 #define FLOAT_MAX 340282346638528859811704183484516925440.0f
+#define PINBALL_EPSILON .0001f
+
+#define MAX_OBSTACLES 256
+#define MAX_BALLS     256
 
 typedef enum ObstacleType
 {
@@ -40,8 +44,10 @@ typedef struct Ball
 
 typedef struct Obstacle
 {
+    char* name;
     ObstacleType type;
     Vector3 pos;
+    Vector3 centerOfRot;
     int elasticity;
 
     Vector3 size;
@@ -53,6 +59,7 @@ typedef struct GameState
 {
     int screenWidth;
     int screenHeight;
+    int frameCount;
     float dt;
 
     bool controllingCamera = false;
@@ -80,9 +87,9 @@ typedef struct GameState
     Material matDefault;
 
     int obstacleCount;
-    Obstacle obstacles[256];
+    Obstacle obstacles[MAX_OBSTACLES];
     int ballCount;
-    Ball balls[256];
+    Ball balls[MAX_BALLS];
 } GameState;
 
 struct VertexGJK
